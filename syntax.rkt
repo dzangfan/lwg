@@ -91,7 +91,10 @@
                                          $1-start-pos $1-end-pos)))
     (assign-statement ((left-value EQ right-value)
                        (non-terminal 'assign-statement (list $1 $3)
-                                     $1-start-pos $3-end-pos)))
+                                     $1-start-pos $3-end-pos))
+                      ((PROPERTY)
+                       (terminal 'assign-statement 'PROPERTY $1
+                                 $1-start-pos $1-end-pos)))
     (left-value ((SYMBOL)
                  (terminal 'left-value 'SYMBOL $1 $1-start-pos $1-end-pos))
                 ((PROPERTY)
@@ -117,6 +120,16 @@
                                       $1-start-pos $2-end-pos))))
    (start program)
    (end EOF)))
+
+(define (read-AST port)
+  (lwg-parser (lambda () (lwg-lexer port))))
+
+(define (string->AST source)
+  (read-AST (open-input-string source)))
+
+(provide
+ (contract-out (read-AST (-> input-port? AST?))
+               (string->AST (-> string? AST?))))
 
 (module+ test
   (require rackunit)
@@ -163,9 +176,6 @@
                     (PROPERTY ("*" "a" "b"))
                     (PROPERTY ("*" "*")))))
 
-  (define (string->AST source)
-    (let ([port (open-input-string source)])
-      (lwg-parser (lambda () (lwg-lexer port)))))
   (define (AST->sexp ast)
     (match ast
       [(AST 'leaf type (list token-type token-value) _ _)
@@ -263,6 +273,37 @@
                        (statement
                         (assign-statement
                          (left-value (PROPERTY ("c" "a")))
-                         (right-value (SINGLE-STR "b")))))))))))
+                         (right-value (SINGLE-STR "b"))))))))))
+  (test-case "Nested assign-statement test"
+    (define source "*.x = { a = 10 y = { z = x }}")
+    (check-equal? (string->sexp source)
+                  '(program
+                    (statement
+                     (assign-statement
+                      (left-value (PROPERTY ("*" "x")))
+                      (right-value
+                       (assign-statement+
+                        (assign-statement
+                         (left-value (SYMBOL "a"))
+                         (right-value (SYMBOL "10")))
+                        (assign-statement+
+                         (assign-statement
+                          (left-value (SYMBOL "y"))
+                          (right-value
+                           (assign-statement+
+                            (assign-statement
+                             (left-value (SYMBOL "z"))
+                             (right-value (SYMBOL "x"))))))))))))))
+  (test-case "Switch-like assign-statement test"
+    (define source "automaton automaton.accepts.state_0")
+    (check-equal? (string->sexp source)
+                  '(program
+                    (statement
+                     (graph-statement
+                      (node (SYMBOL "automaton"))))
+                    (program
+                     (statement
+                      (assign-statement
+                       (PROPERTY ("automaton" "accepts" "state_0")))))))))
 
 
