@@ -8,8 +8,12 @@
 
 (define default-value '(SINGLE-STR "NIL"))
 
+(struct assignment (path value) #:transparent)
+
 (define (make-assignment path [value default-value])
-  (list path value))
+  (assignment path value))
+
+(provide assignment make-assignment)
 
 (define (pop-stack stack amount)
   (cond [(and (zero? amount) (pair? stack)) stack]
@@ -22,7 +26,7 @@
 (define/contract (poly-graph-statement->assignment-list ast [stack null]
                                                         #:initial [initial #t])
   (->* ((struct/c AST any/c 'poly-graph-statement any/c any/c any/c))
-       (list?)
+       (list? #:initial boolean?)
        (values string? any/c))
   (match-define (list (AST _ 'node (list token-type node-name/left) _ _)
                       (AST _ 'edge-operator edge-token _ _)
@@ -114,12 +118,19 @@
      (append (statement->assignment-list stm)
              (normalize prog))]))
 
+(provide
+ (contract-out [normalize (-> (struct/c AST any/c 'program any/c any/c any/c)
+                              list?)]))
+
 (module+ test
   (require rackunit)
+  (define (al->list assignment-list)
+    (map (lambda (a) (list (assignment-path a) (assignment-value a)))
+         assignment-list))
   (define (string->assignment-list/graph source)
     (let* ([program (string->AST source)]
            [graph-stm (first (AST-value (first (AST-value program))))])
-      (graph-statement->assignment-list graph-stm)))
+      (al->list (graph-statement->assignment-list graph-stm))))
   (test-case "Single node test"
     (check-equal? (string->assignment-list/graph "^x")
                   `((("graph" "node" "x") ,default-value))))
@@ -138,7 +149,7 @@
   (define (string->assignment-list/assign source)
     (let* ([program (string->AST source)]
            [assign-stm (first (AST-value (first (AST-value program))))])
-      (assign-statement->assignment-list assign-stm)))
+      (al->list (assign-statement->assignment-list assign-stm))))
   (test-case "Switch-style assignment test"
     (check-equal? (string->assignment-list/assign "command.exit")
                   `((("command" "exit") ,default-value)))
@@ -173,7 +184,7 @@
                     (("node" "0" "style" "color") (DOUBLE-STR "red"))
                     (("node" "0" "style" "frame") (SINGLE-STR "dot")))))
   (define (string->assignment-list source)
-    (normalize (string->AST source)))
+    (al->list (normalize (string->AST source))))
   (test-case "Program normalization test"
     (define source "a - b > ^c > d >> e
                     command.log.output = __STDOUT__
