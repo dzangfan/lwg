@@ -4,8 +4,7 @@
 (require racket/contract)
 (require racket/list)
 (require racket/string)
-
-(struct exn:fail:trie exn:fail () #:transparent)
+(require "exn.rkt")
 
 (struct trie ([dict #:mutable])
   #:constructor-name make-trie)
