@@ -43,6 +43,8 @@
                   (type (one-of/c 'program
                                   'statement
                                   'graph-statement
+                                  'mono-graph-statement
+                                  'poly-graph-statement
                                   'assign-statement
                                   'node
                                   'edge-operator
@@ -76,12 +78,23 @@
                                                 $1 $1-start-pos $1-end-pos))
                ((assign-statement) (non-terminal 'statement
                                                  $1 $1-start-pos $1-end-pos)))
-    (graph-statement ((node edge-operator graph-statement)
-                      (non-terminal 'graph-statement
-                                    (list $1 $2 $3)
-                                    $1-start-pos $3-end-pos))
-                     ((node) (non-terminal 'graph-statement
-                                           $1 $1-start-pos $1-end-pos)))
+    (graph-statement ((mono-graph-statement)
+                      (non-terminal 'graph-statement $1
+                                    $1-start-pos $1-end-pos))
+                     ((poly-graph-statement)
+                      (non-terminal 'graph-statement $1
+                                    $1-start-pos $1-end-pos)))
+    (mono-graph-statement ((PUSH SYMBOL)
+                           (terminal 'mono-graph-statement 'PUSH+SYMBOL
+                                     $2 $1-start-pos $2-end-pos)))
+    (poly-graph-statement ((node edge-operator poly-graph-statement)
+                           (non-terminal 'poly-graph-statement
+                                         (list $1 $2 $3)
+                                         $1-start-pos $3-end-pos))
+                          ((node edge-operator node)
+                           (non-terminal 'poly-graph-statement
+                                         (list $1 $2 $3)
+                                         $1-start-pos $3-end-pos)))
     (node ((SYMBOL) (terminal 'node 'SYMBOL $1 $1-start-pos $1-end-pos))
           ((PUSH SYMBOL) (terminal 'node 'PUSH+SYMBOL
                                    $2 $1-start-pos $2-end-pos)))
@@ -92,9 +105,9 @@
     (assign-statement ((left-value EQ right-value)
                        (non-terminal 'assign-statement (list $1 $3)
                                      $1-start-pos $3-end-pos))
-                      ((PROPERTY)
-                       (terminal 'assign-statement 'PROPERTY $1
-                                 $1-start-pos $1-end-pos)))
+                      ((left-value)
+                       (non-terminal 'assign-statement $1
+                                     $1-start-pos $1-end-pos)))
     (left-value ((SYMBOL)
                  (terminal 'left-value 'SYMBOL $1 $1-start-pos $1-end-pos))
                 ((PROPERTY)
@@ -184,18 +197,37 @@
        (list* type (map AST->sexp subtrees))]))
   (define (string->sexp source)
     (AST->sexp (string->AST source)))
-  (test-case "Simple graph-statement test"
-    (define source "a - b >> c")
-    (check-equal? (string->sexp source)
+  (test-case "Single node test"
+    (check-equal? (string->sexp "^x")
                   '(program
                     (statement
                      (graph-statement
-                      (node (SYMBOL "a"))
-                      (edge-operator (MOVE ()))
-                      (graph-statement
-                       (node (SYMBOL "b"))
-                       (edge-operator (POP+MOVE 1))
-                       (graph-statement
+                      (mono-graph-statement (PUSH+SYMBOL "x")))))))
+  (test-case "Single assignment test"
+    (check-equal? (string->sexp "x")
+                  '(program
+                    (statement
+                     (assign-statement
+                      (left-value (SYMBOL "x")))))))
+  (test-case "Simple graph-statement test"
+    (check-equal? (string->sexp "^a - b")
+                  '(program
+                    (statement
+                     (graph-statement
+                      (poly-graph-statement
+                       (node (PUSH+SYMBOL "a"))
+                       (edge-operator (MOVE ()))
+                       (node (SYMBOL "b")))))))
+    (check-equal? (string->sexp "a - b >> c")
+                  '(program
+                    (statement
+                     (graph-statement
+                      (poly-graph-statement
+                       (node (SYMBOL "a"))
+                       (edge-operator (MOVE ()))
+                       (poly-graph-statement
+                        (node (SYMBOL "b"))
+                        (edge-operator (POP+MOVE 1))
                         (node (SYMBOL "c")))))))))
   (test-case "Simple assign-statement test"
     (define source "node.10.name = 'ten'")
@@ -211,25 +243,26 @@
                   '(program
                     (statement
                      (graph-statement
-                      (node (SYMBOL "a"))
-                      (edge-operator (POP+MOVE 0))
-                      (graph-statement (node (SYMBOL "b")))))
+                      (poly-graph-statement
+                       (node (SYMBOL "a"))
+                       (edge-operator (POP+MOVE 0))
+                       (node (SYMBOL "b")))))
                     (program
                      (statement
                       (graph-statement
-                       (node (SYMBOL "a"))
-                       (edge-operator (POP+MOVE 0))
-                       (graph-statement
+                       (poly-graph-statement
+                        (node (SYMBOL "a"))
+                        (edge-operator (POP+MOVE 0))
                         (node (SYMBOL "c")))))
                      (program
                       (statement
                        (graph-statement
-                        (node (PUSH+SYMBOL "b"))
-                        (edge-operator (MOVE ()))
-                        (graph-statement
-                         (node (SYMBOL "c"))
-                         (edge-operator (POP+MOVE 0))
-                         (graph-statement
+                        (poly-graph-statement
+                         (node (PUSH+SYMBOL "b"))
+                         (edge-operator (MOVE ()))
+                         (poly-graph-statement
+                          (node (SYMBOL "c"))
+                          (edge-operator (POP+MOVE 0))
                           (node (SYMBOL "d")))))))))))
   (test-case "Compound assign-statements test"
     (define source "a = b a.b = 'a'")
@@ -250,12 +283,12 @@
                   '(program
                     (statement
                      (graph-statement
-                      (node (SYMBOL "a"))
-                      (edge-operator (MOVE ()))
-                      (graph-statement
-                       (node (PUSH+SYMBOL "b"))
-                       (edge-operator (POP+MOVE 1))
-                       (graph-statement
+                      (poly-graph-statement
+                       (node (SYMBOL "a"))
+                       (edge-operator (MOVE ()))
+                       (poly-graph-statement
+                        (node (PUSH+SYMBOL "b"))
+                        (edge-operator (POP+MOVE 1))
                         (node (SYMBOL "c"))))))
                     (program
                      (statement
@@ -265,9 +298,9 @@
                      (program
                       (statement
                        (graph-statement
-                        (node (SYMBOL "b"))
-                        (edge-operator (MOVE ()))
-                        (graph-statement
+                        (poly-graph-statement
+                         (node (SYMBOL "b"))
+                         (edge-operator (MOVE ()))
                          (node (SYMBOL "c")))))
                       (program
                        (statement
@@ -295,15 +328,21 @@
                              (left-value (SYMBOL "z"))
                              (right-value (SYMBOL "x"))))))))))))))
   (test-case "Switch-like assign-statement test"
-    (define source "automaton automaton.accepts.state_0")
+    (define source "^automaton automaton automaton.accepts.state_0")
     (check-equal? (string->sexp source)
                   '(program
                     (statement
                      (graph-statement
-                      (node (SYMBOL "automaton"))))
+                      (mono-graph-statement
+                       (PUSH+SYMBOL "automaton"))))
                     (program
                      (statement
                       (assign-statement
-                       (PROPERTY ("automaton" "accepts" "state_0")))))))))
+                       (left-value (SYMBOL "automaton"))))
+                     (program
+                      (statement
+                       (assign-statement
+                        (left-value
+                         (PROPERTY ("automaton" "accepts" "state_0")))))))))))
 
 
