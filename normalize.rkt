@@ -8,10 +8,11 @@
 
 (define default-value '(SINGLE-STR "NIL"))
 
-(struct assignment (path value) #:transparent)
+(struct assignment (path value start-pos end-pos) #:transparent)
 
-(define (make-assignment path [value default-value])
-  (assignment path value))
+(define (make-assignment path [value default-value]
+                         #:from start-pos #:to end-pos)
+  (assignment path value start-pos end-pos))
 
 (provide assignment make-assignment)
 
@@ -28,8 +29,10 @@
   (->* ((struct/c AST any/c 'poly-graph-statement any/c any/c any/c))
        (list? #:initial boolean?)
        (values string? any/c))
-  (match-define (list (AST _ 'node (list token-type node-name/left) _ _)
-                      (AST _ 'edge-operator edge-token _ _)
+  (match-define (list (AST _ 'node (list token-type node-name/left)
+                           start-pos/node end-pos/node)
+                      (AST _ 'edge-operator edge-token
+                           start-pos/edge end-pos/edge)
                       graph-or-node)
     (AST-value ast))
   (define stack+#0
@@ -46,20 +49,25 @@
       [_ node-name/left]))
   (define-values (node-name+ assignment-list+)
     (match graph-or-node
-      [(AST _ 'node (list _ node-name+) _ _)
+      [(AST _ 'node (list _ node-name+) start-pos end-pos)
        (values node-name+
-               (list (make-assignment (list "graph" "node" node-name+))))]
+               (list (make-assignment (list "graph" "node" node-name+)
+                                      #:from start-pos #:to end-pos)))]
       [graph
        (poly-graph-statement->assignment-list graph stack+ #:initial #f)]))
   (values node-name/left
-          (list* (make-assignment (list "graph" "node" node-name/left))
-                 (make-assignment (list "graph" "edge" node-name node-name+))
+          (list* (make-assignment (list "graph" "node" node-name/left)
+                                  #:from start-pos/node #:to end-pos/node)
+                 (make-assignment (list "graph" "edge" node-name node-name+)
+                                  #:from start-pos/edge #:to end-pos/edge)
                  assignment-list+)))
 
 (define/contract (mono-graph-statement->assignment-list ast)
   (-> (struct/c AST any/c 'mono-graph-statement any/c any/c any/c) any/c)
   (match-let ([(list 'PUSH+SYMBOL node-name) (AST-value ast)])
-    (list (make-assignment (list "graph" "node" node-name)))))
+    (list (make-assignment (list "graph" "node" node-name)
+                           #:from (AST-start-pos ast)
+                           #:to (AST-end-pos ast)))))
 
 (define/contract (graph-statement->assignment-list ast)
   (-> (struct/c AST any/c 'graph-statement any/c any/c any/c) any/c)
@@ -83,9 +91,11 @@
 (define/contract (assign-statement->assignment-list ast [prefix null])
   (->* ((struct/c AST any/c 'assign-statement any/c any/c any/c)) (list?) any/c)
   (match (AST-value ast)
-    [(list (AST _ 'left-value (list _ name) _ _))
+    [(list (AST _ 'left-value (list _ name) start-pos end-pos))
      (let ([path (if (list? name) name (list name))])
-       (list (make-assignment (append prefix path) default-value)))]
+       (list (make-assignment (append prefix path) default-value
+                              #:from (AST-start-pos ast)
+                              #:to (AST-end-pos ast))))]
     [(list left-value right-value)
      (define path
        (match (AST-value left-value)
@@ -101,7 +111,9 @@
             [(list 'SYMBOL symbol) (list 'REF (list symbol))]
             [(list 'PROPERTY property) (list 'REF property)]
             [_ token]))
-        (list (make-assignment full-path value))])]))
+        (list (make-assignment full-path value
+                               #:from (AST-start-pos ast)
+                               #:to (AST-end-pos ast)))])]))
 
 (define/contract (statement->assignment-list ast)
   (-> (struct/c AST any/c 'statement any/c any/c any/c) any/c)
