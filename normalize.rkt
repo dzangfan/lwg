@@ -11,10 +11,10 @@
 (struct assignment (path value start-pos end-pos) #:transparent)
 
 (define (make-assignment path [value default-value]
-                         #:from start-pos #:to end-pos)
+                         #:from [start-pos #f] #:to [end-pos #f])
   (assignment path value start-pos end-pos))
 
-(provide assignment make-assignment)
+(provide (struct-out assignment) make-assignment default-value)
 
 (define (pop-stack stack amount)
   (cond [(and (zero? amount) (pair? stack)) stack]
