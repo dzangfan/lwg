@@ -11,6 +11,9 @@
 
 (struct runtime (trie [handlers #:mutable] data))
 
+(provide [struct-out handler]
+         [struct-out runtime])
+
 (define (empty-runtime)
   (runtime (empty-trie) null (make-hasheq)))
 
@@ -40,9 +43,7 @@
     (or result-table (void))))
 
 (provide
- (contract-out [make-handler
-                (-> symbol? (-> runtime? assignment? any/c) handler?)]
-               [empty-runtime (-> runtime?)]
+ (contract-out [empty-runtime (-> runtime?)]
                [add-handler! (-> runtime? handler? any/c)]
                [get-runtime-variable (-> runtime? (listof string?) string?)]
                [set-runtime-variable!
@@ -141,6 +142,9 @@
                                  cas ...
                                  [_ #f])
                          fin ...))))]))
+
+(provide define-runtime-service
+         define-handler)
 
 (module+ test
   (require rackunit)
