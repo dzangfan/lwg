@@ -14,8 +14,12 @@
 
 (define (require-handler handler-name)
   (match (hash-ref lwg-handlers handler-name #f)
-    [#f (raise (exn:fail:lwg-runtime-error
-                (format "Unknown handler '~A'" handler-name)
+    [#f (define available-handlers
+          (string-join (map symbol->string (hash-keys lwg-handlers))
+                       "\n  "))
+     (raise (exn:fail:lwg-runtime-error
+             (format "Unknown handler '~A'. Available handlers:~%  ~A"
+                     handler-name available-handlers)
                 (current-continuation-marks)))]
     [handler handler]))
 

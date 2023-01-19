@@ -10,4 +10,9 @@
       product
       (string-append product suffix)))
 
-(provide shorten)
+(define (pushnew elt lst #:is-same? [is-same? equal?])
+  (if (findf (lambda (elt*) (is-same? elt* elt)) lst)
+      lst
+      (append lst (list elt))))
+
+(provide shorten pushnew)
