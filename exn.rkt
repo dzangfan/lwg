@@ -6,6 +6,6 @@
 
 (struct exn:fail:lwg-runtime-error exn:fail () #:transparent)
 
-(provide exn:fail:trie
-         exn:fail:lwg-semantics
-         exn:fail:lwg-runtime-error)
+(provide [struct-out exn:fail:trie]
+         [struct-out exn:fail:lwg-semantics]
+         [struct-out exn:fail:lwg-runtime-error])

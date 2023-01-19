@@ -1,5 +1,6 @@
 #lang racket/base
 
+(require "exn.rkt")
 (require "runtime.rkt")
 (require racket/contract)
 (require racket/match)
@@ -8,28 +9,28 @@
 
 (define lwg-handlers (make-hasheq))
 
-(define (use-handler handler)
+(define (provide-handler handler)
   (hash-set! lwg-handlers (handler-name handler) handler))
 
-(define (rem-handler handler)
-  (hash-remove! lwg-handlers (handler-name handler)))
-
-(define (make-lwg-runtime)
-  (let ([runtime (empty-runtime)])
-    (for ([handler (hash-values lwg-handlers)])
-      (add-handler! runtime handler))
-    runtime))
+(define (require-handler handler-name)
+  (match (hash-ref lwg-handlers handler-name #f)
+    [#f (raise (exn:fail:lwg-runtime-error
+                (format "Unknown handler '~A'" handler-name)
+                (current-continuation-marks)))]
+    [handler handler]))
 
 (provide
- (contract-out [use-handler (-> handler? any/c)]
-               [rem-handler (-> handler? any/c)]
-               [make-lwg-runtime (-> runtime?)]))
+ (contract-out [provide-handler (-> handler? any/c)]
+               [require-handler (-> symbol? handler?)]))
 
 (define-logger lwg #:parent #f)
 
+(define (lwg-log/plain topic level message)
+  (log-message lwg-logger level topic message #f #f))
+
 (define (lwg-log* topic level format-string args)
   (define message (apply format format-string args))
-  (log-message lwg-logger level topic message #f #f))
+  (lwg-log/plain topic level message))
 
 (define (lwg-log topic level format-string . args)
   (lwg-log* topic level format-string args))
@@ -95,30 +96,21 @@
     (lwg-log* handler-name 'fatal format-string args)))
 
 (provide
- (contract-out [lwg-log* (-> symbol? log-level/c string? list? any/c)]
+ (contract-out [lwg-log/plain (-> symbol? log-level/c string? any/c)]
+               [lwg-log* (-> symbol? log-level/c string? list? any/c)]
                [lwg-log (-> symbol? log-level/c string? any/c ... any/c)]
                [lwg-open-receiver (-> log-level/c output-port? any/c)]
                [lwg-close-receivers (-> any/c)]))
 
 (module+ test
   (require rackunit)
-  (require racket/set)
   (require "normalize.rkt")
-  (test-case "Global handlers' test"
-    (define-handler h#0)
-    (define-handler h#1)
-    (define-handler h#2)
-    (define (handlers) (list->seteq (hash-keys lwg-handlers)))
-    (check-equal? (handlers) (seteq))
-    (use-handler h#0)
-    (check-equal? (handlers) (seteq 'h#0))
-    (use-handler h#1)
-    (use-handler h#2)
-    (check-equal? (handlers) (seteq 'h#0 'h#1 'h#2))
-    (use-handler h#2)
-    (check-equal? (handlers) (seteq 'h#0 'h#1 'h#2))
-    (rem-handler h#1)
-    (check-equal? (handlers) (seteq 'h#0 'h#2)))
+  (test-case "Global handler test"
+    (define-handler h)
+    (provide-handler h)
+    (define my-h (require-handler 'h))
+    (check-eq? (handler-name my-h) 'h)
+    (check-exn exn:fail:lwg-runtime-error? (lambda () (require-handler 'm))))
   (test-case "Primitive logger test"
     (define output (open-output-string))
     (lwg-open-receiver 'debug output)
@@ -166,19 +158,18 @@ EOF
       [(name "say" = content)
        (debug "~A -- ~A" content name)
        (fatal "Hello, ~A! -- others" name)])
-    (use-handler debug-handler)
     (define assignment-list
       (list (make-assignment '("Carol" "say") "Hello!")
             (make-assignment '("Alice" "say") "Hi.")
             (make-assignment '("Bob" "say") "...")
             (make-assignment '("David" "say") "may i come in?")))
-    (define runtime (make-lwg-runtime))
+    (define runtime (empty-runtime))
+    (add-handler! runtime debug-handler)
     (define output (open-output-string))
     (lwg-open-receiver 'debug output)
     (for ([assignment assignment-list])
       (handle runtime assignment))
     (lwg-close-receivers)
-    (rem-handler debug-handler)
     (check-equal? (get-output-string output)
                   #<<EOF
 [W] debug-handler: Hello! -- Carol
@@ -207,13 +198,12 @@ EOF
       #:finally (warn "F")
       #:finally (err "F")
       #:finally (fatal "F"))
-    (use-handler debug-handler)
-    (define runtime (make-lwg-runtime))
+    (define runtime (empty-runtime))
+    (add-handler! runtime debug-handler)
     (define output (open-output-string))
     (lwg-open-receiver 'debug output)
     (handle runtime (make-assignment '("a") "b"))
     (lwg-close-receivers)
-    (rem-handler debug-handler)
     (check-equal? (get-output-string output)
                   #<<EOF
 (D) debug-handler: I

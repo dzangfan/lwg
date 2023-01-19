@@ -19,7 +19,12 @@
 
 (define (add-handler! runtime handler)
   (let ([handlers (runtime-handlers runtime)])
-    (set-runtime-handlers! runtime (append handlers (list handler)))))
+    (cond [(findf (lambda (h) (eq? (handler-name h) (handler-name handler)))
+                  handlers)
+           #f]
+          [else (set-runtime-handlers! runtime
+                                       (append handlers (list handler)))
+                #t])))
 
 (define (get-runtime-variable runtime path)
   (trie-ref (runtime-trie runtime) path))
@@ -150,6 +155,13 @@
   (require rackunit)
   (require racket/string)
   (require racket/list)
+  (test-case "Duplicate handler test"
+    (define h (make-handler 'h (lambda _ 0)))
+    (define runtime (empty-runtime))
+    (check-true (add-handler! runtime h))
+    (check-false (add-handler! runtime h))
+    (check-equal? (length (runtime-handlers runtime))
+                  1))
   (test-case "Primitive handler test"
     (define runtime (empty-runtime))
     (define output (open-output-string))
