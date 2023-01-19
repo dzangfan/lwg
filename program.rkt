@@ -57,6 +57,7 @@
   (require "normalize.rkt")
   (require "runtime.rkt")
   (require "lwg-runtime.rkt")
+  (require "handlers/main.rkt")
   (require racket/list)
   (require racket/match)
   (require racket/format)
@@ -66,7 +67,7 @@
     (lwg-open-receiver 'debug stdout)
 
     (define builtin-handler-names
-      '())
+      '(auto-store))
 
     (with-handlers ([exn:fail?
                      (lambda (exn)

@@ -77,23 +77,33 @@
 
 (define-runtime-service #:logger/debug (handler-name runtime assignment)
   (lambda (format-string . args)
-    (lwg-log* handler-name 'debug format-string args)))
+    (if (null? args)
+        (lwg-log/plain handler-name 'debug format-string)
+        (lwg-log* handler-name 'debug format-string args))))
 
 (define-runtime-service #:logger/info (handler-name runtime assignment)
   (lambda (format-string . args)
-    (lwg-log* handler-name 'info format-string args)))
+    (if (null? args)
+        (lwg-log/plain handler-name 'info format-string)
+        (lwg-log* handler-name 'info format-string args))))
 
 (define-runtime-service #:logger/warning (handler-name runtime assignment)
   (lambda (format-string . args)
-    (lwg-log* handler-name 'warning format-string args)))
+    (if (null? args)
+        (lwg-log/plain handler-name 'warning format-string)
+        (lwg-log* handler-name 'warning format-string args))))
 
 (define-runtime-service #:logger/error (handler-name runtime assignment)
   (lambda (format-string . args)
-    (lwg-log* handler-name 'error format-string args)))
+    (if (null? args)
+        (lwg-log/plain handler-name 'error format-string)
+        (lwg-log* handler-name 'error format-string args))))
 
 (define-runtime-service #:logger/fatal (handler-name runtime assignment)
   (lambda (format-string . args)
-    (lwg-log* handler-name 'fatal format-string args)))
+    (if (null? args)
+        (lwg-log/plain handler-name 'fatal format-string)
+        (lwg-log* handler-name 'fatal format-string args))))
 
 (provide
  (contract-out [lwg-log/plain (-> symbol? log-level/c string? any/c)]
@@ -188,7 +198,7 @@ EOF
       #:use [#:logger/warning warn]
       #:use [#:logger/error err]
       #:use [#:logger/fatal fatal]
-      #:initially (debug "I")
+      #:initially (debug "I~~~")
       #:initially (info "I")
       #:initially (warn "I")
       #:initially (err "I")
@@ -206,7 +216,7 @@ EOF
     (lwg-close-receivers)
     (check-equal? (get-output-string output)
                   #<<EOF
-(D) debug-handler: I
+(D) debug-handler: I~~~
 [I] debug-handler: I
 [W] debug-handler: I
 <E> debug-handler: I
