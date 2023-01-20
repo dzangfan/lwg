@@ -103,15 +103,15 @@
                            #:to (assignment-end-pos last-a))))
       (define assignment-list+
         (append argv-assignment-list
-                (list (make-assignment '("file" "path")
+                (list (make-assignment '("__FILE__" "path")
                                        (list 'SINGLE-STR source-path/str)
                                        #:from (assignment-start-pos 1st-a)
                                        #:to (assignment-end-pos 1st-a))
-                      (make-assignment '("file" "start")
+                      (make-assignment '("__FILE__" "start")
                                        #:from (assignment-start-pos 1st-a)
                                        #:to (assignment-end-pos 1st-a)))
                 assignment-list
-                (list (make-assignment '("file" "end")
+                (list (make-assignment '("__FILE__" "end")
                                        #:from (assignment-start-pos last-a)
                                        #:to (assignment-end-pos last-a)))))
 

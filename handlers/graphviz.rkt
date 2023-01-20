@@ -114,7 +114,7 @@
   (define edge-op
     (and graph (if (graphviz-graph-directed? graph) "->" "--")))
   #:case
-  [("file" "start")
+  [("__FILE__" "start")
    (info "The graph is directed by default.")
    (init-graph! (init-graphviz-graph))]
   #:case
@@ -156,7 +156,7 @@
    (add-attr! graph (list from-node to-node) attr value)]
   #:use [#:var var]
   #:case
-  [("file" "end")
+  [("__FILE__" "end")
    (define argv.0 (var "argv" "0"))
    (define graphviz.output (var "graphviz" "output"))
    (define fallback-port #f)
