@@ -50,9 +50,11 @@
      (let ([item (assoc "__SELF__" dict string=?)])
        (if item (list (list null (second item))) null))]
     [(list "__SELF__" _ ...) (report-self-error)]
-    [(list "*" _ ...)
-     (raise (exn:fail:trie "'*' cannot be used as a right value"
-                           (current-continuation-marks)))]
+    [(list "*" rest-path ...)
+     (let ([item (assoc "*" dict string=?)])
+       (if (not item)
+           null
+           (add-path "*" (trie-ref/all (second item) rest-path))))]
     [(list word rest-path ...)
      (let ([item (assoc word dict string=?)]
            [item* (assoc "*" dict string=?)])
@@ -123,7 +125,10 @@
   (test-case "Simple wildcard test"
     (define t (empty-trie))
     (check-equal? (@trie t "edge.*.*.text" #:= "EDGE") "EDGE")
-    (check-equal? (@trie t "edge.0.1.text") "EDGE"))
+    (check-equal? (@trie t "edge.a.b" #:= "AB") "AB")
+    (check-equal? (@trie t "edge.0.1.text") "EDGE")
+    (check-equal? (@trie t "edge.*.*.text") "EDGE")
+    (check-equal? (@trie t "edge.a.*") ""))
   (test-case "Conflicted wildcard test"
     (define t (empty-trie))
     (check-equal? (@trie t "edge.*.*.text" #:= "EDGE") "EDGE")
