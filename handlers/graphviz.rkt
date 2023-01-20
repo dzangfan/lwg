@@ -118,11 +118,11 @@
    (info "The graph is directed by default.")
    (init-graph! (init-graphviz-graph))]
   #:case
-  [("graph" "is" "directed")
+  [("directed" "graph")
    (info "The graph is directed.")
    (set-graphviz-graph-directed?! graph #t)]
   #:case
-  [("graph" "is" "undirected")
+  [("undirected" "graph")
    (info "The graph is undirected")
    (set-graphviz-graph-directed?! graph #f)]
   #:case
@@ -134,6 +134,18 @@
    (debug "- ~A ~A ~A" from-node edge-op to-node)
    (add-edge! graph from-node to-node)]
   #:case
+  [("graph" attr = value)
+   (debug "# graph [~A = ~A]" attr (shorten value))
+   (add-graph-attr! graph attr value)]
+  #:case
+  [("node" "*" attr = value)
+   (debug "# node [~A = ~A]" attr (shorten value))
+   (add-node-attr! graph attr value)]
+  #:case
+  [("edge" "*" attr = value)
+   (debug "# edge [~A = ~A]" attr (shorten value))
+   (add-edge-attr! graph attr value)]
+  #:case
   [("node" name attr = value)
    (debug "@ ~A: [~A = ~A]" name attr (shorten value))
    (add-attr! graph name attr value)]
@@ -142,18 +154,6 @@
    (debug "@ ~A ~A ~A: [~A = ~A]" from-node edge-op to-node
           attr (shorten value))
    (add-attr! graph (list from-node to-node) attr value)]
-  #:case
-  [("default" "graph" attr = value)
-   (debug "# graph [~A = ~A]" attr (shorten value))
-   (add-graph-attr! graph attr value)]
-  #:case
-  [("default" "node" attr = value)
-   (debug "# node [~A = ~A]" attr (shorten value))
-   (add-node-attr! graph attr value)]
-  #:case
-  [("default" "edge" attr = value)
-   (debug "# edge [~A = ~A]" attr (shorten value))
-   (add-edge-attr! graph attr value)]
   #:use [#:var var]
   #:case
   [("file" "end")

@@ -1,11 +1,9 @@
+undirected.graph
+
 do_while > body - ^assign > left > ^right_plus > plus_i > plus_1
        >>> ^lt > ^square > ary > idx >> v
 
-graph.is.undirected
-
-default.node = {
-  shape = 'none'
-}
+node.*.shape = 'none'
 
 node = {
   do_while.label = 'do-while'
