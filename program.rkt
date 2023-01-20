@@ -3,9 +3,13 @@
 (require "exn.rkt")
 (require "normalize.rkt")
 (require "runtime.rkt")
+(require "lwg-runtime.rkt")
 (require racket/path)
 (require racket/cmdline)
 (require racket/match)
+(require racket/string)
+(require racket/format)
+(require parser-tools/lex)
 
 (struct lwg-args (source-path handler-names+ graph-argv)
   #:transparent)
@@ -24,6 +28,25 @@
                             handler-names+
                             graph-argv))))
 
+(define (report-error source-path assignment)
+  (define start-pos (assignment-start-pos assignment))
+  (define end-pos (assignment-end-pos assignment))
+  (define start-offset (position-offset start-pos))
+  (define end-offset (position-offset end-pos))
+  (define message-lines
+    (list "An exception has been raised."
+          (format "  Start: Line ~A, column ~A (offset = ~A)"
+                  (or (position-line start-pos) "<unknown>")
+                  (or (position-col start-pos) "<unknown>")
+                  (or (position-offset start-pos) "<unknown>"))
+          (format "  End: Line ~A, column ~A (offset = ~A)"
+                  (or (position-line end-pos) "<unknown>")
+                  (or (position-col end-pos) "<unknown>")
+                  (or (position-offset end-pos) "<unknown>"))
+          (format "  Processing: ~A = ..."
+                  (string-join (assignment-path assignment) "."))))
+  (lwg-log/plain 'lwg 'error (string-join message-lines "\n")))
+
 (define (evaluate-assignment assignment runtime)
   (define new-value
     (match (assignment-value assignment)
@@ -31,10 +54,7 @@
       [(list 'DOUBLE-STR value) value]
       [(list 'REF path)
        (get-runtime-variable runtime path)]
-      [value
-       (raise (exn:fail:lwg-runtime-error (format "Unknown right-value: ~A"
-                                                  value))
-              (current-continuation-marks))]))
+      [value (~a value)]))
   (make-assignment (assignment-path assignment)
                    new-value
                    #:from (assignment-start-pos assignment)
@@ -67,10 +87,15 @@
     (lwg-open-receiver 'debug stdout)
 
     (define builtin-handler-names
-      '(auto-store))
+      '(auto-store select))
     
-    (with-handlers ([exn:fail?
-                     (lambda (exn)
+    (with-handlers ([(lambda (exn-or-box)
+                       (or (exn:fail? exn-or-box)
+                           (box? exn-or-box)))
+                     (lambda (exn-or-box)
+                       (define exn (if (box? exn-or-box)
+                                       (unbox exn-or-box)
+                                       exn-or-box))
                        (lwg-log/plain 'lwg 'fatal (exn-message exn)))])
       (define args (parse-command-line #:port stdout))
       (define runtime (empty-runtime))
@@ -87,7 +112,7 @@
       (define source-path (lwg-args-source-path args))
       (define source-path/str (path->string source-path))
       (lwg-log 'lwg 'info "Source: ~A" source-path/str)
-      (define source-port (open-input-file source-path))
+      (define source-port (open-input-file source-path #:mode 'text))
       (define ast (read-AST source-port))
       (define assignment-list (normalize ast))
       (lwg-log 'lwg 'info "Compilation completes.")
@@ -126,18 +151,24 @@
           (set! generated-assignment-list
                 (append generated-assignment-list (list assignment)))))
 
+      
+
       (let handle-all ([current-assignment-list assignment-list+])
         (unless (null? current-assignment-list)
           (define assignment (first current-assignment-list))
-          (define assignment+ (evaluate-assignment assignment runtime))
-          (handle runtime assignment+ #:collect-result #f)
-          (cond [(null? generated-assignment-list)
-                 (handle-all (rest current-assignment-list))]
-                [else (define next-assignment-list
-                        (append generated-assignment-list
-                                (rest current-assignment-list)))
-                      (set! generated-assignment-list null)
-                      (handle-all next-assignment-list)])))
+          (with-handlers ([exn:fail? (lambda (exn)
+                                       (report-error source-path assignment)
+                                       (raise (box exn)))])
+            (define assignment+ (evaluate-assignment assignment runtime))
+            (handle runtime assignment+ #:collect-result #f)
+            (cond [(null? generated-assignment-list)
+                   (handle-all (rest current-assignment-list))]
+                  [else
+                   (define next-assignment-list
+                     (append generated-assignment-list
+                             (rest current-assignment-list)))
+                   (set! generated-assignment-list null)
+                   (handle-all next-assignment-list)]))))
       
       (lwg-log 'lwg 'info "Execution completes."))
 
