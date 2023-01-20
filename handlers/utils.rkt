@@ -1,4 +1,8 @@
+
 #lang racket/base
+
+(require "../exn.rkt")
+(require racket/string)
 
 (define (shorten str #:limit [limit 8] #:suffix [suffix "..."])
   (define product
@@ -15,4 +19,27 @@
       lst
       (append lst (list elt))))
 
-(provide shorten pushnew)
+(define (string->graphviz-id str)
+  (define content
+    (string-replace str "\"" "\\\""))
+  (if (string-suffix? content "\\")
+      (raise (exn:fail:lwg-runtime-error
+              "Graphviz string cannot end with backslash"
+              (current-continuation-marks)))
+      (format "\"~A\"" content)))
+
+(define (write-hash->graphviz-attr-list attr-table port)
+  (when attr-table
+    (for ([i (in-naturals)]
+          [(attr value) (in-hash attr-table)])
+      (if (zero? i)
+          (display "\n  [ " port)
+          (display "\n  ; " port))
+      (fprintf port "~A = ~A"
+               (string->graphviz-id attr)
+               (string->graphviz-id value)))
+    (display " ]" port)))
+
+(provide shorten pushnew
+         string->graphviz-id
+         write-hash->graphviz-attr-list)

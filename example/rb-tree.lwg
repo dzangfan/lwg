@@ -1,3 +1,5 @@
+undirected.graph
+
 13 > 8 > 17
 
 8 > 1 - 6 > 11
@@ -11,4 +13,7 @@ node.* = {
 select.node = { 13 1 11 15 25 }
 selected.fillcolor = 'black'
 select.node = { 8 6 17 22 27 }
-selected.fillcolor = 'red'
+selected = {
+  color = 'red'
+  fillcolor = 'red'
+}

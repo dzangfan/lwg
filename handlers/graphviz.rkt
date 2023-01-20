@@ -7,15 +7,6 @@
 (require racket/string)
 (require racket/list)
 
-(define (string->graphviz-id str)
-  (define content
-    (string-replace str "\"" "\\\""))
-  (if (string-suffix? content "\\")
-      (raise (exn:fail:lwg-runtime-error
-              "Graphviz string cannot end with backslash"
-              (current-continuation-marks)))
-      (format "\"~A\"" content)))
-
 (struct graphviz-graph
   ([directed? #:mutable]
    [node-list #:mutable]
@@ -62,18 +53,7 @@
 (define (write-attr-list g-graph port [key #f] #:use-table [table #f])
   (define attr-table
     (or table (hash-ref (graphviz-graph-attr g-graph) key #f)))
-  (when attr-table
-    (for ([i (in-naturals)]
-          [(attr value) (in-hash attr-table)])
-      (if (zero? i)
-          (display "\n  [ " port)
-          (display "\n  ; " port))
-      (fprintf port "~A = ~A"
-               (string->graphviz-id attr)
-               (string->graphviz-id value)))
-    (display " ]" port)))
-
-
+  (write-hash->graphviz-attr-list attr-table port))
 
 (define (write-graphviz-graph g-graph port)
   (define edge-op (if (graphviz-graph-directed? g-graph) "->" "--"))

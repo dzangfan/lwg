@@ -1,0 +1,13 @@
+0 > 0 > ^1 > 0 > 2 - 2
+
+start.from.0
+
+accept = { 0 2 }
+
+move.*.0 = '1'
+move.0.1 = '0'
+move.1.2 = '0'
+move.2.2 = '0,1'
+
+select.state.1 = { fontcolor color }
+selected = 'red'
