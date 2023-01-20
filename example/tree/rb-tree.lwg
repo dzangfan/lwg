@@ -1,0 +1,14 @@
+13 > 8 > 17
+
+8 > 1 - 6 > 11
+
+17 - 15 > ^25 > 22 > 27
+
+node.* = {
+  fontcolor = 'white'
+  style = 'filled'
+}
+select.node = { 13 1 11 15 25 }
+selected.fillcolor = 'black'
+select.node = { 8 6 17 22 27 }
+selected.fillcolor = 'red'

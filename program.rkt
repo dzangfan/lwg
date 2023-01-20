@@ -156,6 +156,9 @@
       (let handle-all ([current-assignment-list assignment-list+])
         (unless (null? current-assignment-list)
           (define assignment (first current-assignment-list))
+          (define-runtime-service #:primitive-value
+            (handler-name runtime assignment*)
+            (assignment-value assignment))
           (with-handlers ([exn:fail? (lambda (exn)
                                        (report-error source-path assignment)
                                        (raise (box exn)))])
