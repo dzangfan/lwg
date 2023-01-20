@@ -8,6 +8,8 @@
 
 (define default-value '(SINGLE-STR "NIL"))
 
+(define meta-graph-root "__GRAPH__")
+
 (struct assignment (path value start-pos end-pos) #:transparent)
 
 (define (make-assignment path [value default-value]
@@ -51,21 +53,22 @@
     (match graph-or-node
       [(AST _ 'node (list _ node-name+) start-pos end-pos)
        (values node-name+
-               (list (make-assignment (list "graph" "node" node-name+)
+               (list (make-assignment (list meta-graph-root "node" node-name+)
                                       #:from start-pos #:to end-pos)))]
       [graph
        (poly-graph-statement->assignment-list graph stack+ #:initial #f)]))
   (values node-name/left
-          (list* (make-assignment (list "graph" "node" node-name/left)
+          (list* (make-assignment (list meta-graph-root "node" node-name/left)
                                   #:from start-pos/node #:to end-pos/node)
-                 (make-assignment (list "graph" "edge" node-name node-name+)
+                 (make-assignment (list meta-graph-root "edge"
+                                        node-name node-name+)
                                   #:from start-pos/edge #:to end-pos/edge)
                  assignment-list+)))
 
 (define/contract (mono-graph-statement->assignment-list ast)
   (-> (struct/c AST any/c 'mono-graph-statement any/c any/c any/c) any/c)
   (match-let ([(list 'PUSH+SYMBOL node-name) (AST-value ast)])
-    (list (make-assignment (list "graph" "node" node-name)
+    (list (make-assignment (list meta-graph-root "node" node-name)
                            #:from (AST-start-pos ast)
                            #:to (AST-end-pos ast)))))
 
@@ -145,19 +148,19 @@
       (al->list (graph-statement->assignment-list graph-stm))))
   (test-case "Single node test"
     (check-equal? (string->assignment-list/graph "^x")
-                  `((("graph" "node" "x") ,default-value))))
+                  `(((,meta-graph-root "node" "x") ,default-value))))
   (test-case "Single move test"
     (check-equal? (string->assignment-list/graph "a - b")
-                  `((("graph" "node" "a") ,default-value)
-                    (("graph" "edge" "a" "b") ,default-value)
-                    (("graph" "node" "b") ,default-value))))
+                  `(((,meta-graph-root "node" "a") ,default-value)
+                    ((,meta-graph-root "edge" "a" "b") ,default-value)
+                    ((,meta-graph-root "node" "b") ,default-value))))
   (test-case "Single pop-move test"
     (check-equal? (string->assignment-list/graph "a - ^b >> c")
-                  `((("graph" "node" "a") ,default-value)
-                    (("graph" "edge" "a" "b") ,default-value)
-                    (("graph" "node" "b") ,default-value)
-                    (("graph" "edge" "a" "c") ,default-value)
-                    (("graph" "node" "c") ,default-value))))
+                  `(((,meta-graph-root "node" "a") ,default-value)
+                    ((,meta-graph-root "edge" "a" "b") ,default-value)
+                    ((,meta-graph-root "node" "b") ,default-value)
+                    ((,meta-graph-root "edge" "a" "c") ,default-value)
+                    ((,meta-graph-root "node" "c") ,default-value))))
   (define (string->assignment-list/assign source)
     (let* ([program (string->AST source)]
            [assign-stm (first (AST-value (first (AST-value program))))])
@@ -216,15 +219,15 @@
                     command.execute
                     EOF")
     (check-equal? (string->assignment-list source)
-                  `((("graph" "node" "a") ,default-value)
-                    (("graph" "edge" "a" "b") ,default-value)
-                    (("graph" "node" "b") ,default-value)
-                    (("graph" "edge" "a" "c") ,default-value)
-                    (("graph" "node" "c") ,default-value)
-                    (("graph" "edge" "c" "d") ,default-value)
-                    (("graph" "node" "d") ,default-value)
-                    (("graph" "edge" "a" "e") ,default-value)
-                    (("graph" "node" "e") ,default-value)
+                  `(((,meta-graph-root "node" "a") ,default-value)
+                    ((,meta-graph-root "edge" "a" "b") ,default-value)
+                    ((,meta-graph-root "node" "b") ,default-value)
+                    ((,meta-graph-root "edge" "a" "c") ,default-value)
+                    ((,meta-graph-root "node" "c") ,default-value)
+                    ((,meta-graph-root "edge" "c" "d") ,default-value)
+                    ((,meta-graph-root "node" "d") ,default-value)
+                    ((,meta-graph-root "edge" "a" "e") ,default-value)
+                    ((,meta-graph-root "node" "e") ,default-value)
                     (("command" "log" "output") (REF ("__STDOUT__")))
                     (("node" "a" "text") (SINGLE-STR "build"))
                     (("edge" "a" "e" "color") (DOUBLE-STR "red"))
@@ -232,7 +235,7 @@
                     (("node" "c" "text" "strong") ,default-value)
                     (("node" "c" "really") ,default-value)
                     (("node" "e" "strong") (REF ("node" "c" "strong")))
-                    (("graph" "node" "f") ,default-value)
+                    ((,meta-graph-root "node" "f") ,default-value)
                     (("node" "f" "text" "strong") ,default-value)
                     (("node" "f" "text" "big") ,default-value)
                     (("node" "f" "text" "__SELF__") (SINGLE-STR "Tasks"))

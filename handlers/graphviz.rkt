@@ -126,11 +126,11 @@
    (info "The graph is undirected")
    (set-graphviz-graph-directed?! graph #f)]
   #:case
-  [("graph" "node" name)
+  [("__GRAPH__" "node" name)
    (debug "* ~A" name)
    (add-node! graph name)]
   #:case
-  [("graph" "edge" from-node to-node)
+  [("__GRAPH__" "edge" from-node to-node)
    (debug "- ~A ~A ~A" from-node edge-op to-node)
    (add-edge! graph from-node to-node)]
   #:case
