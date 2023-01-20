@@ -68,7 +68,7 @@
 
     (define builtin-handler-names
       '(auto-store))
-
+    
     (with-handlers ([exn:fail?
                      (lambda (exn)
                        (lwg-log/plain 'lwg 'fatal (exn-message exn)))])
@@ -115,9 +115,30 @@
                                        #:from (assignment-start-pos last-a)
                                        #:to (assignment-end-pos last-a)))))
 
-      (for ([assignment assignment-list+])
-        (define assignment+ (evaluate-assignment assignment runtime))
-        (handle runtime assignment+ #:collect-result #f))
+      (define generated-assignment-list null)
+
+      (define-runtime-service #:gen-assignment (handler-name runtime assignment)
+        (lambda (path #:start-pos [start-pos (assignment-start-pos assignment)]
+                      #:end-pos [end-pos (assignment-end-pos assignment)]
+                      #:= [value default-value])
+          (define assignment
+            (make-assignment path value #:from start-pos #:to end-pos))
+          (set! generated-assignment-list
+                (append generated-assignment-list (list assignment)))))
+
+      (let handle-all ([current-assignment-list assignment-list+])
+        (unless (null? current-assignment-list)
+          (define assignment (first current-assignment-list))
+          (define assignment+ (evaluate-assignment assignment runtime))
+          (handle runtime assignment+ #:collect-result #f)
+          (cond [(null? generated-assignment-list)
+                 (handle-all (rest current-assignment-list))]
+                [else (define next-assignment-list
+                        (append generated-assignment-list
+                                (rest current-assignment-list)))
+                      (set! generated-assignment-list null)
+                      (handle-all next-assignment-list)])))
+      
       (lwg-log 'lwg 'info "Execution completes."))
 
     (lwg-close-receivers)))
